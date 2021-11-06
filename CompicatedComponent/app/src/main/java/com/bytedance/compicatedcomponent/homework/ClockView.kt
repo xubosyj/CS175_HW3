@@ -5,7 +5,9 @@ import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
 import android.util.AttributeSet
+import android.util.Log
 import android.view.View
+import android.webkit.WebSettings
 import java.util.*
 import kotlin.math.cos
 import kotlin.math.sin
@@ -39,6 +41,10 @@ class ClockView @JvmOverloads constructor(
         private const val RIGHT_ANGLE = 90
 
         private const val UNIT_DEGREE = (6 * Math.PI / 180).toFloat() // 一个小格的度数
+
+        private const val DEFAULT_TEXT_STROKE_WIDTH = 10f
+        private const val DEFAULT_TEXT_SIZE = 500f
+
     }
 
     private var panelRadius = 200.0f // 表盘半径
@@ -55,7 +61,13 @@ class ClockView @JvmOverloads constructor(
 
     private var degreesColor = 0
 
+    private var nowHours:Int = 0
+    private var nowMinutes:Int = 0
+    private var nowSeconds: Int = 0
+
     private val needlePaint: Paint
+
+
 
     init {
         degreesColor = DEFAULT_PRIMARY_COLOR
@@ -63,6 +75,7 @@ class ClockView @JvmOverloads constructor(
         needlePaint.style = Paint.Style.FILL_AND_STROKE
         needlePaint.strokeCap = Paint.Cap.ROUND
     }
+
 
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
@@ -81,6 +94,12 @@ class ClockView @JvmOverloads constructor(
 
     override fun onDraw(canvas: Canvas) {
         super.onDraw(canvas)
+        val calendar: Calendar = Calendar.getInstance()
+        val now: Date = calendar.time
+        nowHours = now.hours + 8
+        nowMinutes = now.minutes
+        nowSeconds = now.seconds
+
         resultWidth = if (height > width) width else height
         val halfWidth = resultWidth / 2
         centerX = halfWidth
@@ -95,6 +114,8 @@ class ClockView @JvmOverloads constructor(
         drawNeedles(canvas)
 
         // todo 1: 每一秒刷新一次，让指针动起来
+        postInvalidateDelayed(1000)
+
     }
 
     private fun drawDegrees(canvas: Canvas) {
@@ -136,6 +157,20 @@ class ClockView @JvmOverloads constructor(
     private fun drawHoursValues(canvas: Canvas) {
         // Default Color:
         // - hoursValuesColor
+        val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            style = Paint.Style.FILL_AND_STROKE
+            strokeCap = Paint.Cap.ROUND
+            strokeWidth = DEFAULT_TEXT_STROKE_WIDTH
+            color = DEFAULT_PRIMARY_COLOR
+        }
+        paint.setTextSize(DEFAULT_TEXT_SIZE)
+        paint.setTextAlign(Paint.Align.CENTER);
+        val fontMetrics: Paint.FontMetrics = paint.getFontMetrics()
+        val distance = (fontMetrics.bottom - fontMetrics.top) / 2 - fontMetrics.bottom
+        val baseline: Float = centerY + distance
+        canvas.drawText(nowHours.toString(), centerX.toFloat(), baseline, paint)
+
+
     }
 
     /**
@@ -145,16 +180,12 @@ class ClockView @JvmOverloads constructor(
      * @param canvas
      */
     private fun drawNeedles(canvas: Canvas) {
-        val calendar: Calendar = Calendar.getInstance()
-        val now: Date = calendar.time
-        val nowHours: Int = now.hours
-        val nowMinutes: Int = now.minutes
-        val nowSeconds: Int = now.seconds
         // 画秒针
         drawPointer(canvas, POINTER_TYPE_SECOND, nowSeconds)
         // 画分针
         // todo 2: 画分针
-
+        val numOfMinutes = nowMinutes + nowSeconds/60
+        drawPointer(canvas, POINTER_TYPE_MINUTES,numOfMinutes)
         // 画时针
         val part = nowMinutes / 12
         drawPointer(canvas, POINTER_TYPE_HOURS, 5 * nowHours + part)
@@ -172,6 +203,9 @@ class ClockView @JvmOverloads constructor(
                 pointerHeadXY = getPointerHeadXY(hourPointerLength, degree)
             }
             POINTER_TYPE_MINUTES -> {
+                degree = value * UNIT_DEGREE
+                needlePaint.color = Color.CYAN
+                pointerHeadXY = getPointerHeadXY(minutePointerLength, degree)
             }
             POINTER_TYPE_SECOND -> {
                 degree = value * UNIT_DEGREE
